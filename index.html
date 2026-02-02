@@ -2,148 +2,59 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Runner Game</title>
+<title>Runner Game - Scrolling Background</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- PWA manifest -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#87CEEB">
-
-<!-- Google AdSense (safe placement) -->
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5580404798212871"
-        crossorigin="anonymous"></script>
-
 <style>
-body { margin:0; background:#87CEEB; font-family:Arial; text-align:center; }
-#gameContainer { position:relative; width:360px; margin:20px auto; }
-canvas { display:block; border-radius:10px; }
-#restartBtn {
-  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-  padding:14px 26px; font-size:20px; border:none; border-radius:10px;
-  background:#ff5252; color:white; cursor:pointer; display:none; z-index:10;
+body { margin:0; background:#87CEEB; text-align:center; font-family:Arial; }
+canvas { display:block; margin:20px auto; border-radius:10px; }
+#score,#coins{ font-size:18px; font-weight:bold; margin:5px; }
+#restartBtn{
+  display:none; padding:10px 20px; font-size:18px;
+  border:none; border-radius:8px; background-color:#00c853;
+  color:white; cursor:pointer; margin-top:10px;
 }
 </style>
 </head>
 <body>
 
 <h2>🏃 Runner Game</h2>
-<div id="gameContainer">
-  <canvas id="game" width="360" height="500"></canvas>
-  <button id="restartBtn">Restart</button>
-</div>
+<canvas id="gameCanvas"></canvas>
 <p id="score">Score: 0</p>
 <p id="coins">Coins: 0</p>
-<p>Tap or press SPACE to jump</p>
-
-<!-- AdSense Ad Unit -->
-<ins class="adsbygoogle"
-     style="display:block; text-align:center; margin:10px 0;"
-     data-ad-client="ca-pub-5580404798212871"
-     data-ad-slot="1234567890"
-     data-ad-format="auto"
-     data-full-width-responsive="true"></ins>
-<script>
-     (adsbygoogle = window.adsbygoogle || []).push({});
-</script>
+<p>Tap screen to jump</p>
+<button id="restartBtn">Restart</button>
 
 <script>
-// CANVAS
-const canvas = document.getElementById("game");
+const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-const restartBtn = document.getElementById("restartBtn");
+canvas.width = 360; canvas.height = 500;
 
-// AUDIO
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function beep(freq,time){
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.connect(g); g.connect(audioCtx.destination);
-  o.frequency.value = freq;
-  g.gain.value = 0.2;
-  o.start();
-  o.stop(audioCtx.currentTime + time);
-}
+let score=0, coins=0, gameOver=false;
+let soundUnlocked=false;
 
-// GAME STATE
-let score=0, coinsCollected=0, gameOver=false;
+// Sounds
+const jumpSound = new Audio("https://freesound.org/data/previews/331/331912_3248244-lq.mp3");
+const coinSound = new Audio("https://freesound.org/data/previews/146/146725_2615113-lq.mp3");
+const gameOverSound = new Audio("https://freesound.org/data/previews/276/276031_5121236-lq.mp3");
 
-// PLAYER
-const player = {x:60, y:420, w:40, h:50, dy:0, gravity:0.8, jump:-16, onGround:true};
+// Unlock sounds after first tap
+document.addEventListener("touchstart", () => {
+  if(!soundUnlocked){
+    jumpSound.play(); jumpSound.pause(); jumpSound.currentTime=0;
+    coinSound.play(); coinSound.pause(); coinSound.currentTime=0;
+    gameOverSound.play(); gameOverSound.pause(); gameOverSound.currentTime=0;
+    soundUnlocked = true;
+  }
+}, {once:true});
+
+// Player
 const playerImg = new Image();
 playerImg.src = "https://i.imgur.com/lXo8V6I.png";
+const player = {x:50,y:400,width:40,height:50,dy:0,gravity:1,jumpPower:-15,onGround:true};
 
-// OBSTACLE
-const obstacle={x:360,y:440,w:30,h:30,speed:3};
-
-// COINS
-let coins = [
-  {x:500, y:380, w:20, h:20, collected:false},
-  {x:800, y:350, w:20, h:20, collected:false},
-  {x:1200, y:400, w:20, h:20, collected:false}
-];
-
-// CONTROLS
-function jump(){ if(player.onGround && !gameOver){ player.dy=player.jump; player.onGround=false; beep(600,0.1); }}
-document.addEventListener("touchstart", ()=>{audioCtx.resume(); jump();});
-document.addEventListener("keydown", e=>{ if(e.code==="Space"){audioCtx.resume(); jump();}});
-
-// RESTART
-restartBtn.onclick=()=>{ location.reload(); };
-
-// GAME LOOP
-function loop(){
-  if(gameOver) return;
-
-  // Clear
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  // Background
-  ctx.fillStyle="#87CEEB"; ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle="#A0D995"; ctx.fillRect(0,450,canvas.width,50);
-
-  // PLAYER physics
-  player.dy+=player.gravity; player.y+=player.dy;
-  if(player.y>=420){player.y=420; player.dy=0; player.onGround=true;}
-
-  // DRAW PLAYER
-  ctx.drawImage(playerImg, player.x, player.y-player.h, player.w, player.h);
-
-  // OBSTACLE
-  obstacle.x-=obstacle.speed;
-  if(obstacle.x<-obstacle.w){ obstacle.x=canvas.width; score++; document.getElementById("score").textContent="Score: "+score;}
-  ctx.fillStyle="red"; ctx.fillRect(obstacle.x, obstacle.y-obstacle.h, obstacle.w, obstacle.h);
-
-  // COINS
-  coins.forEach(c=>{
-    if(!c.collected){
-      c.x-=obstacle.speed;
-      ctx.fillStyle="gold"; ctx.beginPath();
-      ctx.arc(c.x+c.w/2,c.y+c.h/2,c.w/2,0,Math.PI*2); ctx.fill();
-
-      const margin=4;
-      if(player.x+margin < c.x+c.w-margin && player.x+player.w-margin > c.x+margin &&
-         player.y < c.y+c.h && player.y+player.h > c.y){
-        c.collected=true; coinsCollected++; document.getElementById("coins").textContent="Coins: "+coinsCollected;
-        beep(900,0.1);
-      }
-    }
-    if(c.x<-c.w){ c.x=canvas.width+Math.random()*400; c.collected=false; c.y=300+Math.random()*100; }
-  });
-
-  // COLLISION
-  const margin=4;
-  if(player.x+margin < obstacle.x+obstacle.w-margin && player.x+player.w-margin > obstacle.x+margin &&
-     player.y < obstacle.y-margin && player.y+player.h > obstacle.y-obstacle.h+margin){
-    gameOver=true; beep(200,0.5);
-    alert("Game Over! Score: "+score+" | Coins: "+coinsCollected);
-    restartBtn.style.display="block";
-  }
-
-  requestAnimationFrame(loop);
-}
-
-playerImg.onload=()=>{ loop(); };
-</script>
-
-</body>
-</html>
+// Controls
+document.addEventListener("touchstart", jump);
+document.addEventListener("keydown", e => { if(e.code==="Space") jump(); });
+function jump(){ if(player.onGround
